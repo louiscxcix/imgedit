@@ -147,31 +147,25 @@ if btn_process and (files_left or files_right):
     st.rerun()
 
 
-# ---------- Bottom area: results (FIXED) ----------
-st.subheader("🎨 Enhanced Results")
+# ---------- Bottom area: results (SIMPLE DISPLAY + DOWNLOAD) ----------
+st.subheader("🎨 Enhanced Results - Right-click to save")
 
 res_left_col, res_right_col = st.columns(2)
 
 with res_left_col:
     st.markdown("### 🧱 White Concrete Results")
     if st.session_state.results_left:
-        for img in st.session_state.results_left:
-            # FIXED: Convert PIL Image to bytes for Streamlit
-            img_byte_arr = io.BytesIO()
-            img.save(img_byte_arr, format='PNG')
-            img_byte_arr = img_byte_arr.getvalue()
-            st.image(img_byte_arr, caption=None, use_container_width=True)
+        for i, img in enumerate(st.session_state.results_left):
+            # SIMPLIFIED: st.image handles PIL directly, right-click to download
+            st.image(img, caption=f"Enhanced {i+1} - Right-click → Save image as...", use_container_width=True)
     else:
         st.info("👆 Upload images to left side and click Process")
 
 with res_right_col:
     st.markdown("### 🌲 Wooden Floor Results") 
     if st.session_state.results_right:
-        for img in st.session_state.results_right:
-            # FIXED: Convert PIL Image to bytes for Streamlit
-            img_byte_arr = io.BytesIO()
-            img.save(img_byte_arr, format='PNG')
-            img_byte_arr = img_byte_arr.getvalue()
-            st.image(img_byte_arr, caption=None, use_container_width=True)
+        for i, img in enumerate(st.session_state.results_right):
+            # SIMPLIFIED: st.image handles PIL directly, right-click to download
+            st.image(img, caption=f"Enhanced {i+1} - Right-click → Save image as...", use_container_width=True)
     else:
         st.info("👆 Upload images to right side and click Process")
