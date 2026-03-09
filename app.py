@@ -7,18 +7,15 @@ from google import genai
 from google.genai import types
 
 # ---------- Gemini client ----------
-API_KEY = st.secrets["GEMINI_API_KEY"]  # uses Streamlit secrets
+API_KEY = st.secrets["GEMINI_API_KEY"]
 client = genai.Client(api_key=API_KEY)
 
-MODEL_NAME = "gemini-3-pro-image-preview"  # your specified model
+MODEL_NAME = "gemini-3-pro-image-preview"
 
 
-def edit_tshirt_image(
-    pil_image: Image.Image,
-    style_prompt: str,
-) -> Image.Image:
+def edit_tshirt_image(pil_image: Image.Image, style_prompt: str) -> bytes:
     """
-    Call Gemini once for a single image and style.
+    Call Gemini once and return raw image bytes.
     """
     try:
         response = client.models.generate_content(
@@ -31,30 +28,25 @@ def edit_tshirt_image(
                 response_modalities=["IMAGE"],
                 image_config=types.ImageConfig(
                     aspect_ratio="1:1",
-                    image_size="1024x1024",  # your specified size
+                    image_size="1024x1024",
                 ),
             ),
         )
 
-        # Take the first returned image
+        # Grab raw bytes directly from inline_data - avoids Pydantic issue
         for part in response.parts:
-            img = part.as_image()
-            if img is not None:
-                return img
+            if part.inline_data is not None:
+                return part.inline_data.data
 
-        # Fallback: return original if nothing came back
         st.warning("Gemini returned no image - showing original")
-        return pil_image
-        
+        return None
+
     except Exception as e:
         st.error(f"API error: {str(e)}")
-        return pil_image
+        return None
 
 
 def make_prompt(background_style: str) -> str:
-    """
-    Build a strong editing prompt that keeps the t‑shirt unchanged.
-    """
     return (
         "You are editing an e‑commerce product photo of a t‑shirt.\n"
         "Keep the exact same t‑shirt, shape, print, color, and folds. "
@@ -74,11 +66,11 @@ st.set_page_config(page_title="T‑Shirt Photo Enhancer", layout="wide")
 
 st.title("🛍️ T‑Shirt Photo Enhancer (Gemini 3 Pro Image Preview)")
 
-# Session state for results
+# Session state stores raw bytes now
 if "results_left" not in st.session_state:
-    st.session_state.results_left: List[Image.Image] = []
+    st.session_state.results_left: List[bytes] = []
 if "results_right" not in st.session_state:
-    st.session_state.results_right: List[Image.Image] = []
+    st.session_state.results_right: List[bytes] = []
 
 
 # ---------- Top area: uploaders ----------
@@ -96,7 +88,7 @@ with col_left:
 with col_right:
     st.subheader("🌳 Wooden Floor Background")
     files_right = st.file_uploader(
-        "Upload PNG/JPG images", 
+        "Upload PNG/JPG images",
         type=["png", "jpg", "jpeg", "webp"],
         accept_multiple_files=True,
         key="uploader_right",
@@ -121,51 +113,52 @@ if btn_reset:
 # ---------- Processing ----------
 if btn_process and (files_left or files_right):
     with st.spinner("Processing images through Gemini..."):
-        # Process LEFT uploader images (white concrete background)
+
         if files_left:
             prompt_left = make_prompt(
                 "modern white concrete studio background, clean, minimal, soft shadows"
             )
-            for i, f in enumerate(files_left):
+            for f in files_left:
                 with st.status(f"Processing {f.name}...", expanded=False):
                     image = Image.open(io.BytesIO(f.read())).convert("RGB")
-                    edited = edit_tshirt_image(image, prompt_left)
-                    st.session_state.results_left.append(edited)
+                    result_bytes = edit_tshirt_image(image, prompt_left)
+                    if result_bytes:
+                        st.session_state.results_left.append(result_bytes)
 
-        # Process RIGHT uploader images (wooden floor background)
         if files_right:
             prompt_right = make_prompt(
                 "natural and clean wooden floor background, neutral wall, warm but subtle lighting"
             )
-            for i, f in enumerate(files_right):
+            for f in files_right:
                 with st.status(f"Processing {f.name}...", expanded=False):
                     image = Image.open(io.BytesIO(f.read())).convert("RGB")
-                    edited = edit_tshirt_image(image, prompt_right)
-                    st.session_state.results_right.append(edited)
+                    result_bytes = edit_tshirt_image(image, prompt_right)
+                    if result_bytes:
+                        st.session_state.results_right.append(result_bytes)
 
     st.success("✅ All images processed!")
     st.rerun()
 
 
-# ---------- Bottom area: results (SIMPLE DISPLAY + DOWNLOAD) ----------
-st.subheader("🎨 Enhanced Results - Right-click to save")
+# ---------- Bottom area: results ----------
+st.subheader("🎨 Enhanced Results")
 
 res_left_col, res_right_col = st.columns(2)
 
 with res_left_col:
     st.markdown("### 🧱 White Concrete Results")
     if st.session_state.results_left:
-        for i, img in enumerate(st.session_state.results_left):
-            # SIMPLIFIED: st.image handles PIL directly, right-click to download
-            st.image(img, caption=f"Enhanced {i+1} - Right-click → Save image as...", use_container_width=True)
+        for i, img_bytes in enumerate(st.session_state.results_left):
+            # Display raw bytes directly - no Pydantic issue
+            st.image(img_bytes, use_container_width=True)
     else:
         st.info("👆 Upload images to left side and click Process")
 
 with res_right_col:
-    st.markdown("### 🌲 Wooden Floor Results") 
+    st.markdown("### 🌲 Wooden Floor Results")
     if st.session_state.results_right:
-        for i, img in enumerate(st.session_state.results_right):
-            # SIMPLIFIED: st.image handles PIL directly, right-click to download
-            st.image(img, caption=f"Enhanced {i+1} - Right-click → Save image as...", use_container_width=True)
+        for i, img_bytes in enumerate(st.session_state.results_right):
+            # Display raw bytes directly - no Pydantic issue
+            st.image(img_bytes, use_container_width=True)
     else:
         st.info("👆 Upload images to right side and click Process")
