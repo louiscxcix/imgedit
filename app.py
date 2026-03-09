@@ -147,7 +147,7 @@ if btn_process and (files_left or files_right):
     st.rerun()
 
 
-# ---------- Bottom area: results ----------
+# ---------- Bottom area: results (FIXED) ----------
 st.subheader("🎨 Enhanced Results")
 
 res_left_col, res_right_col = st.columns(2)
@@ -155,13 +155,23 @@ res_left_col, res_right_col = st.columns(2)
 with res_left_col:
     st.markdown("### 🧱 White Concrete Results")
     if st.session_state.results_left:
-        st.image(st.session_state.results_left, caption=None, use_container_width=True)
+        for img in st.session_state.results_left:
+            # FIXED: Convert PIL Image to bytes for Streamlit
+            img_byte_arr = io.BytesIO()
+            img.save(img_byte_arr, format='PNG')
+            img_byte_arr = img_byte_arr.getvalue()
+            st.image(img_byte_arr, caption=None, use_container_width=True)
     else:
         st.info("👆 Upload images to left side and click Process")
 
 with res_right_col:
     st.markdown("### 🌲 Wooden Floor Results") 
     if st.session_state.results_right:
-        st.image(st.session_state.results_right, caption=None, use_container_width=True)
+        for img in st.session_state.results_right:
+            # FIXED: Convert PIL Image to bytes for Streamlit
+            img_byte_arr = io.BytesIO()
+            img.save(img_byte_arr, format='PNG')
+            img_byte_arr = img_byte_arr.getvalue()
+            st.image(img_byte_arr, caption=None, use_container_width=True)
     else:
         st.info("👆 Upload images to right side and click Process")
