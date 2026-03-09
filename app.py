@@ -7,8 +7,7 @@ from PIL import Image
 from google import genai
 from google.genai import types
 
-# ---------- Gemini client ----------
-API_KEY = os.getenv("AIzaSyB1DwCAFUq80hoEQTZEZl59WHMkDqNNDW4")  # set this env var
+API_KEY = st.secrets["GEMINI_API_KEY"]  # uses Streamlit secrets
 client = genai.Client(api_key=API_KEY)
 
 MODEL_NAME = "gemini-3-pro-image-preview"  # your specified model
