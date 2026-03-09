@@ -1,4 +1,5 @@
 import io
+import zipfile
 from typing import List
 
 import streamlit as st
@@ -10,13 +11,10 @@ from google.genai import types
 API_KEY = st.secrets["GEMINI_API_KEY"]
 client = genai.Client(api_key=API_KEY)
 
-MODEL_NAME = "gemini-3.1-flash-image-preview"
+MODEL_NAME = "gemini-2.5-flash-image"
 
 
 def edit_tshirt_image(pil_image: Image.Image, style_prompt: str) -> bytes:
-    """
-    Call Gemini once and return raw image bytes.
-    """
     try:
         response = client.models.generate_content(
             model=MODEL_NAME,
@@ -60,23 +58,45 @@ def make_prompt(background_style: str, lighting_style: str, shadow_style: str) -
     )
 
 
+# Prompt configs per background
+PROMPT_LEFT = make_prompt(
+    background_style="a clean modern white concrete floor surface, smooth texture, minimal and editorial feel",
+    lighting_style="soft overhead studio lighting, cool-white tone, even and diffused, no harsh highlights, slightly elevated brightness to enhance the concrete feel",
+    shadow_style="soft and subtle natural shadow cast directly beneath and around the t-shirt, slightly blurred edges to feel grounded on the surface",
+)
+
+PROMPT_RIGHT = make_prompt(
+    background_style="a natural warm wooden floor surface, light oak texture, clean and organic feel with visible wood grain",
+    lighting_style="warm natural daylight coming from the side, soft and golden tone, gentle highlights that complement the wood texture without overexposing",
+    shadow_style="warm-toned soft shadow cast to one side beneath the t-shirt, slightly elongated and natural as if lit by a window, grounded on the wood",
+)
+
+PROMPT_TERRAZZO = make_prompt(
+    background_style="a sandy beige terrazzo floor surface, smooth with small warm-toned stone chips, upscale and boutique feel",
+    lighting_style="soft diffused natural light from above, warm-neutral tone, even across the surface with gentle highlights catching the terrazzo texture",
+    shadow_style="soft and short shadow cast directly beneath the t-shirt, slightly warm-toned, grounded naturally on the terrazzo surface",
+)
+
+
 # ---------- Streamlit app ----------
 st.set_page_config(page_title="T‑Shirt Photo Enhancer", layout="wide")
 
-st.title("🛍️ T‑Shirt Photo Enhancer (Gemini 3 Pro Image Preview)")
+st.title("🛍️ T‑Shirt Photo Enhancer (Gemini)")
 
-# Session state stores raw bytes
+# Session state
 if "results_left" not in st.session_state:
     st.session_state.results_left: List[bytes] = []
 if "results_right" not in st.session_state:
     st.session_state.results_right: List[bytes] = []
+if "results_terrazzo" not in st.session_state:
+    st.session_state.results_terrazzo: List[bytes] = []
 
 
-# ---------- Top area: uploaders ----------
-col_left, col_right = st.columns(2)
+# ---------- Top area: 3 uploaders ----------
+col_left, col_right, col_terrazzo = st.columns(3)
 
 with col_left:
-    st.subheader("📁 White Concrete Background")
+    st.subheader("🧱 White Concrete")
     files_left = st.file_uploader(
         "Upload PNG/JPG images",
         type=["png", "jpg", "jpeg", "webp"],
@@ -85,12 +105,21 @@ with col_left:
     )
 
 with col_right:
-    st.subheader("🌳 Wooden Floor Background")
+    st.subheader("🌳 Wooden Floor")
     files_right = st.file_uploader(
         "Upload PNG/JPG images",
         type=["png", "jpg", "jpeg", "webp"],
         accept_multiple_files=True,
         key="uploader_right",
+    )
+
+with col_terrazzo:
+    st.subheader("🪨 Sandy Terrazzo")
+    files_terrazzo = st.file_uploader(
+        "Upload PNG/JPG images",
+        type=["png", "jpg", "jpeg", "webp"],
+        accept_multiple_files=True,
+        key="uploader_terrazzo",
     )
 
 st.markdown("---")
@@ -107,77 +136,94 @@ with col_btn2:
 if btn_reset:
     st.session_state.results_left = []
     st.session_state.results_right = []
+    st.session_state.results_terrazzo = []
     st.rerun()
 
 # ---------- Processing ----------
-if btn_process and (files_left or files_right):
+if btn_process and (files_left or files_right or files_terrazzo):
     with st.spinner("Processing images through Gemini..."):
 
         if files_left:
-            prompt_left = make_prompt(
-                background_style=(
-                    "a clean modern white concrete floor surface, smooth texture, "
-                    "minimal and editorial feel"
-                ),
-                lighting_style=(
-                    "soft overhead studio lighting, cool-white tone, even and diffused, "
-                    "no harsh highlights, slightly elevated brightness to enhance the concrete feel"
-                ),
-                shadow_style=(
-                    "soft and subtle natural shadow cast directly beneath and around the t-shirt, "
-                    "slightly blurred edges to feel grounded on the surface"
-                ),
-            )
             for f in files_left:
-                with st.status(f"Processing {f.name}...", expanded=False):
+                with st.status(f"[Concrete] Processing {f.name}...", expanded=False):
                     image = Image.open(io.BytesIO(f.read())).convert("RGB")
-                    result_bytes = edit_tshirt_image(image, prompt_left)
+                    result_bytes = edit_tshirt_image(image, PROMPT_LEFT)
                     if result_bytes:
                         st.session_state.results_left.append(result_bytes)
 
         if files_right:
-            prompt_right = make_prompt(
-                background_style=(
-                    "a natural warm wooden floor surface, light oak texture, "
-                    "clean and organic feel with visible wood grain"
-                ),
-                lighting_style=(
-                    "warm natural daylight coming from the side, soft and golden tone, "
-                    "gentle highlights that complement the wood texture without overexposing"
-                ),
-                shadow_style=(
-                    "warm-toned soft shadow cast to one side beneath the t-shirt, "
-                    "slightly elongated and natural as if lit by a window, grounded on the wood"
-                ),
-            )
             for f in files_right:
-                with st.status(f"Processing {f.name}...", expanded=False):
+                with st.status(f"[Wood] Processing {f.name}...", expanded=False):
                     image = Image.open(io.BytesIO(f.read())).convert("RGB")
-                    result_bytes = edit_tshirt_image(image, prompt_right)
+                    result_bytes = edit_tshirt_image(image, PROMPT_RIGHT)
                     if result_bytes:
                         st.session_state.results_right.append(result_bytes)
+
+        if files_terrazzo:
+            for f in files_terrazzo:
+                with st.status(f"[Terrazzo] Processing {f.name}...", expanded=False):
+                    image = Image.open(io.BytesIO(f.read())).convert("RGB")
+                    result_bytes = edit_tshirt_image(image, PROMPT_TERRAZZO)
+                    if result_bytes:
+                        st.session_state.results_terrazzo.append(result_bytes)
 
     st.success("✅ All images processed!")
     st.rerun()
 
 
+# ---------- Download All button ----------
+all_results = (
+    st.session_state.results_left
+    + st.session_state.results_right
+    + st.session_state.results_terrazzo
+)
+
+if all_results:
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+        for i, img_bytes in enumerate(st.session_state.results_left):
+            zip_file.writestr(f"concrete_{i+1}.png", img_bytes)
+        for i, img_bytes in enumerate(st.session_state.results_right):
+            zip_file.writestr(f"wood_{i+1}.png", img_bytes)
+        for i, img_bytes in enumerate(st.session_state.results_terrazzo):
+            zip_file.writestr(f"terrazzo_{i+1}.png", img_bytes)
+    zip_buffer.seek(0)
+
+    st.download_button(
+        label="⬇️ Download All Images (ZIP)",
+        data=zip_buffer,
+        file_name="tshirt_enhanced.zip",
+        mime="application/zip",
+        use_container_width=True,
+    )
+
+st.markdown("---")
+
 # ---------- Bottom area: results ----------
 st.subheader("🎨 Enhanced Results")
 
-res_left_col, res_right_col = st.columns(2)
+res_left_col, res_right_col, res_terrazzo_col = st.columns(3)
 
 with res_left_col:
-    st.markdown("### 🧱 White Concrete Results")
+    st.markdown("### 🧱 White Concrete")
     if st.session_state.results_left:
         for img_bytes in st.session_state.results_left:
             st.image(img_bytes, use_container_width=True)
     else:
-        st.info("👆 Upload images to left side and click Process")
+        st.info("👆 Upload images to Concrete side and click Process")
 
 with res_right_col:
-    st.markdown("### 🌲 Wooden Floor Results")
+    st.markdown("### 🌳 Wooden Floor")
     if st.session_state.results_right:
         for img_bytes in st.session_state.results_right:
             st.image(img_bytes, use_container_width=True)
     else:
-        st.info("👆 Upload images to right side and click Process")
+        st.info("👆 Upload images to Wood side and click Process")
+
+with res_terrazzo_col:
+    st.markdown("### 🪨 Sandy Terrazzo")
+    if st.session_state.results_terrazzo:
+        for img_bytes in st.session_state.results_terrazzo:
+            st.image(img_bytes, use_container_width=True)
+    else:
+        st.info("👆 Upload images to Terrazzo side and click Process")
