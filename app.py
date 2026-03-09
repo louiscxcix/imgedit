@@ -10,7 +10,7 @@ from google.genai import types
 API_KEY = st.secrets["GEMINI_API_KEY"]
 client = genai.Client(api_key=API_KEY)
 
-MODEL_NAME = "gemini-3-pro-image-preview"
+MODEL_NAME = "gemini-2.5-flash-image-preview"
 
 
 def edit_tshirt_image(pil_image: Image.Image, style_prompt: str) -> bytes:
