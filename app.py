@@ -33,7 +33,6 @@ def edit_tshirt_image(pil_image: Image.Image, style_prompt: str) -> bytes:
             ),
         )
 
-        # Grab raw bytes directly from inline_data - avoids Pydantic issue
         for part in response.parts:
             if part.inline_data is not None:
                 return part.inline_data.data
@@ -46,18 +45,18 @@ def edit_tshirt_image(pil_image: Image.Image, style_prompt: str) -> bytes:
         return None
 
 
-def make_prompt(background_style: str) -> str:
+def make_prompt(background_style: str, lighting_style: str, shadow_style: str) -> str:
     return (
-        "You are editing an e‑commerce product photo of a t‑shirt.\n"
-        "Keep the exact same t‑shirt, shape, print, color, and folds. "
-        "Do NOT change or replace the t‑shirt, do NOT hallucinate a new design.\n"
-        "Remove the current background (especially the green part) and replace it with a "
-        f"{background_style}.\n"
-        "IMPORTANT: Add slightly more empty space around the t-shirt - "
-        "make it look like the photo was taken from a bit farther away, "
-        "with more breathing room around the product.\n"
-        "Enhance lighting and overall image quality for professional online store listing. "
-        "Preserve realistic shadows and natural look."
+        "You are editing an e‑commerce product photo of a t‑shirt for an online store.\n"
+        "The t‑shirt should appear LAID FLAT on the surface below it, as if placed and styled on the ground.\n"
+        "Keep the exact same t‑shirt, shape, print, color, and folds — do NOT change or replace the t‑shirt design.\n"
+        "Remove the current background (especially the green part).\n"
+        f"Place the t‑shirt flat and neatly on: {background_style}.\n"
+        f"Lighting: {lighting_style}.\n"
+        f"Shadows: {shadow_style}.\n"
+        "Add slightly more empty space around the t-shirt — make it look like the photo was taken from a bit farther away, "
+        "with breathing room on all sides.\n"
+        "Enhance overall sharpness, color vibrancy, and image quality for a professional online store listing."
     )
 
 
@@ -66,7 +65,7 @@ st.set_page_config(page_title="T‑Shirt Photo Enhancer", layout="wide")
 
 st.title("🛍️ T‑Shirt Photo Enhancer (Gemini 3 Pro Image Preview)")
 
-# Session state stores raw bytes now
+# Session state stores raw bytes
 if "results_left" not in st.session_state:
     st.session_state.results_left: List[bytes] = []
 if "results_right" not in st.session_state:
@@ -116,7 +115,18 @@ if btn_process and (files_left or files_right):
 
         if files_left:
             prompt_left = make_prompt(
-                "modern white concrete studio background, clean, minimal, soft shadows"
+                background_style=(
+                    "a clean modern white concrete floor surface, smooth texture, "
+                    "minimal and editorial feel"
+                ),
+                lighting_style=(
+                    "soft overhead studio lighting, cool-white tone, even and diffused, "
+                    "no harsh highlights, slightly elevated brightness to enhance the concrete feel"
+                ),
+                shadow_style=(
+                    "soft and subtle natural shadow cast directly beneath and around the t-shirt, "
+                    "slightly blurred edges to feel grounded on the surface"
+                ),
             )
             for f in files_left:
                 with st.status(f"Processing {f.name}...", expanded=False):
@@ -127,7 +137,18 @@ if btn_process and (files_left or files_right):
 
         if files_right:
             prompt_right = make_prompt(
-                "natural and clean wooden floor background, neutral wall, warm but subtle lighting"
+                background_style=(
+                    "a natural warm wooden floor surface, light oak texture, "
+                    "clean and organic feel with visible wood grain"
+                ),
+                lighting_style=(
+                    "warm natural daylight coming from the side, soft and golden tone, "
+                    "gentle highlights that complement the wood texture without overexposing"
+                ),
+                shadow_style=(
+                    "warm-toned soft shadow cast to one side beneath the t-shirt, "
+                    "slightly elongated and natural as if lit by a window, grounded on the wood"
+                ),
             )
             for f in files_right:
                 with st.status(f"Processing {f.name}...", expanded=False):
@@ -148,8 +169,7 @@ res_left_col, res_right_col = st.columns(2)
 with res_left_col:
     st.markdown("### 🧱 White Concrete Results")
     if st.session_state.results_left:
-        for i, img_bytes in enumerate(st.session_state.results_left):
-            # Display raw bytes directly - no Pydantic issue
+        for img_bytes in st.session_state.results_left:
             st.image(img_bytes, use_container_width=True)
     else:
         st.info("👆 Upload images to left side and click Process")
@@ -157,8 +177,7 @@ with res_left_col:
 with res_right_col:
     st.markdown("### 🌲 Wooden Floor Results")
     if st.session_state.results_right:
-        for i, img_bytes in enumerate(st.session_state.results_right):
-            # Display raw bytes directly - no Pydantic issue
+        for img_bytes in st.session_state.results_right:
             st.image(img_bytes, use_container_width=True)
     else:
         st.info("👆 Upload images to right side and click Process")
