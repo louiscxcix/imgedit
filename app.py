@@ -8,7 +8,7 @@ from google import genai
 from google.genai import types
 
 # ---------- Gemini client ----------
-API_KEY = os.getenv("GEMINI_API_KEY")  # set this env var
+API_KEY = os.getenv("AIzaSyB1DwCAFUq80hoEQTZEZl59WHMkDqNNDW4")  # set this env var
 client = genai.Client(api_key=API_KEY)
 
 MODEL_NAME = "gemini-3-pro-image-preview"  # your specified model
